@@ -25,9 +25,10 @@ y = df['target']
 
 numerical_features = X.columns.tolist()
 preprocessor = ColumnTransformer([('scaler', StandardScaler(), numerical_features)])
-model = Pipeline([('prep', preprocessor),
-                  ('clf', XGBClassifier(use_label_encoder=False, eval_metric='logloss',
-                                        learning_rate=0.1, n_estimators=200))])
+model = Pipeline([
+    ('prep', preprocessor),
+    ('clf', XGBClassifier(eval_metric='logloss', learning_rate=0.1, n_estimators=200))
+])
 
 t_X, v_X, t_y, v_y = train_test_split(X, y, test_size=0.2, random_state=42)
 model.fit(t_X, t_y)
@@ -36,13 +37,18 @@ st.set_page_config(page_title="Prediksi Risiko Jantung", layout="centered")
 st.title("Prediksi Risiko Penyakit Jantung Koroner")
 
 usia = st.number_input("Usia (tahun)", min_value=1, max_value=120, value=50)
-jenis_kelamin = st.selectbox("Jenis Kelamin", options={"Pria":1, "Wanita":0})
+gender_label = st.selectbox("Jenis Kelamin", ["Pria", "Wanita"])
+jenis_kelamin = 1 if gender_label == "Pria" else 0
+
 tekanan_sistolik = st.number_input("Tekanan Darah Sistolik (mmHg)", min_value=50, max_value=250, value=120)
 tekanan_diastolik = st.number_input("Tekanan Darah Diastolik (mmHg)", min_value=30, max_value=150, value=80)
 kolesterol = st.number_input("Kolesterol Total (mg/dL)", min_value=100, max_value=600, value=200)
 glukosa = st.number_input("Glukosa (mg/dL)", min_value=50, max_value=500, value=90)
-diabetes = st.selectbox("Diabetes", options={"Tidak":0, "Ya":1})
-merokok = st.selectbox("Merokok", options={"Tidak":0, "Ya":1})
+
+diabetes_label = st.selectbox("Diabetes", ["Tidak", "Ya"])
+diabetes = 1 if diabetes_label == "Ya" else 0
+merokok_label = st.selectbox("Merokok", ["Tidak", "Ya"])
+merokok = 1 if merokok_label == "Ya" else 0
 
 if st.button("Prediksi Risiko"):
     user_data = pd.DataFrame([[usia, jenis_kelamin, tekanan_sistolik, tekanan_diastolik,
@@ -50,15 +56,18 @@ if st.button("Prediksi Risiko"):
                               columns=numerical_features)
     pred = model.predict(user_data)[0]
     proba = model.predict_proba(user_data)[0][1]
+
     if pred == 1:
         st.error(f"⚠️ Risiko tinggi ({proba:.2f}) terkena penyakit jantung koroner.")
     else:
         st.success(f"✅ Risiko rendah ({proba:.2f}) terkena penyakit jantung koroner.")
+
     proba_val = model.predict_proba(v_X)[:,1]
     auc = roc_auc_score(v_y, proba_val)
     prec = precision_score(v_y, model.predict(v_X))
     rec = recall_score(v_y, model.predict(v_X))
     f1 = f1_score(v_y, model.predict(v_X))
+
     st.markdown("---")
     st.subheader("Evaluasi Model (Data Uji)")
     st.write(f"AUC: {auc:.2f}")
